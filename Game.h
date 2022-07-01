@@ -3,6 +3,8 @@
 #include <SFML/Graphics/CircleShape.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
 
+#include "Deck.h"
+
 class Game
 {
 public:
@@ -15,4 +17,6 @@ private:
     void update(sf::Time deltaTime);
     void render();
     sf::RenderWindow _window;
+
+    Deck deck;
 };

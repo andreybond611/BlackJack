@@ -52,6 +52,6 @@ void Game::update(sf::Time deltaTime)
 void Game::render()
 {
 	_window.clear();
-	
+	deck.cards[0].draw(_window);
 	_window.display();
 }
