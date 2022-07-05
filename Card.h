@@ -2,6 +2,9 @@
 #include <string>
 #include <SFML/Graphics/Sprite.hpp>
 
+constexpr float card_height = 94.f;
+constexpr float card_width = 64.f;
+
 enum Suit
 {
 	hearts,

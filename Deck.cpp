@@ -1,7 +1,8 @@
 #include "Deck.h"
-
 #include <iostream>
 #include <SFML/Graphics/Texture.hpp>
+
+std::array<sf::Texture, normal_deck_card_number> Deck::textures = {};
 
 Deck::Deck()
 {

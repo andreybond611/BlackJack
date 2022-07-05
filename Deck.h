@@ -18,6 +18,6 @@ private:
 	std::string value_to_string(int value);
 	std::string make_stringpath_to_card_png(Suit suit, int value);
 
-	std::array<sf::Texture, normal_deck_card_number> textures;
+	static std::array<sf::Texture, normal_deck_card_number> textures;
 };
 
