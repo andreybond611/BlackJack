@@ -25,6 +25,9 @@ Deck::Deck()
 
 void Deck::shuffle()
 {
+	cards.insert(cards.end(), discarded.begin(), discarded.end());
+	discarded.clear();
+
 	for (int i = normal_deck_card_number - 1; i > 0; i--)
 	{
 		int index = generate_random_number(0, cards.size() - 1);
