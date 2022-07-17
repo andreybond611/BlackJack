@@ -14,6 +14,7 @@ Card::Card(const sf::Texture& texture_to_set, std::string name_to_set,
 
 Card::Card(const Card& copy) :
 	image(copy.image),
+	hidden_texture(copy.hidden_texture),
 	name(copy.name),
 	value(copy.value),
 	count(copy.count),
@@ -27,6 +28,7 @@ Card& Card::operator=(const Card& assign)
 		return *this;
 
 	image = assign.image;
+	hidden_texture = assign.hidden_texture;
 	name = assign.name;
 	value = assign.value;
 	count = assign.count;
@@ -42,6 +44,20 @@ void Card::draw(sf::RenderTarget& target, sf::RenderStates states) const
 void Card::set_position(float x, float y)
 {
 	image.setPosition(x, y);
+}
+
+void Card::hide()
+{
+	hidden_texture = image.getTexture();
+	sf::Texture null_texture;
+	image.setTexture(null_texture);
+	image.setColor(sf::Color::Green);
+}
+
+void Card::unhide()
+{
+	image.setColor(sf::Color::White);
+	image.setTexture(*hidden_texture);
 }
 
 int Card::get_count_from_value(int value)

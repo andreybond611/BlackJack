@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <SFML/Graphics/Sprite.hpp>
+#include <SFML/Graphics/Texture.hpp>
 
 constexpr float card_height = 94.f;
 constexpr float card_width = 64.f;
@@ -18,6 +19,8 @@ class sf::Texture;
 class Card : public sf::Drawable
 {
 public:
+	Card() = default;
+
 	Card(const sf::Texture& texture_to_set, std::string name_to_set,
 	     int value_to_set, Suit suit_to_set);
 
@@ -28,6 +31,9 @@ public:
 
 	void set_position(float x, float y);
 
+	void hide();
+	void unhide();
+
 	std::string get_name()const { return name; }
 	int get_value()const { return value; }
 	int get_count()const { return count; }
@@ -36,6 +42,7 @@ private:
 	int get_count_from_value(int value);
 
 	sf::Sprite image;
+	const sf::Texture* hidden_texture;
 	std::string name;
 	int value;
 	int count;

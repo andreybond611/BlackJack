@@ -1,7 +1,4 @@
 #include "Game.h"
-
-#include <thread>
-#include <chrono>
 #include <iostream>
 #include <SFML/Window/Event.hpp>
 #include <SFML/Window/Keyboard.hpp>
@@ -13,12 +10,18 @@ void Game::initialize_text(sf::Text& text_to_initialize)
 	text_to_initialize.setCharacterSize(text_size);
 }
 
-Game::Game() : _window(sf::VideoMode(window_width, window_height), "Blackjack")
+Game::Game() :
+	_window(sf::VideoMode(window_width, window_height), "Blackjack"),
+	player(*this),
+	dealer(*this)
 {
 	font.loadFromFile("arial.ttf");
 	initialize_text(player_count_text);
+	initialize_text(dealer_count_text);
+	initialize_text(result_text);
+	initialize_text(info_text);
 
-	init();
+	start();
 }
 
 void Game::run(int minimum_frame_per_seconds)
@@ -30,7 +33,7 @@ void Game::run(int minimum_frame_per_seconds)
 	{
 		process_events();
 		timeSinceLastUpdate = clock.restart();
-		while (timeSinceLastUpdate > TimePerFrame) 
+		while (timeSinceLastUpdate > TimePerFrame)
 		{
 			timeSinceLastUpdate -= TimePerFrame;
 			update(TimePerFrame);
@@ -38,6 +41,24 @@ void Game::run(int minimum_frame_per_seconds)
 		update(timeSinceLastUpdate);
 		render();
 	}
+}
+
+void Game::dealer_wins()
+{
+	result_text.setString("Dealer wins");
+	std::cout << "dealer wins";
+	show_result = true;
+	auto callback_to_set = [&]() { start(); };
+	set_timer(1000, callback_to_set);
+}
+
+void Game::player_wins()
+{
+	result_text.setString("Player wins");
+	std::cout << "player wins";
+	show_result = true;
+	auto callback_to_set = [&]() { start(); };
+	set_timer(1000, callback_to_set);
 }
 
 void Game::process_events()
@@ -61,19 +82,17 @@ void Game::process_events()
 
 			if (event.key.code == sf::Keyboard::S && is_input_enabled())
 			{
-				//stand();
+				stand();
 			}
 		}
-
-		
 	}
 }
 
 void Game::hit()
 {
 	Card new_card = deck.give_card();
-	player_cards.push_back(new_card);
-	player_card_count = calculate_card_count(player_cards);
+	player.take_card(new_card);
+	int player_card_count = player.get_card_count();
 
 	if (player_card_count > 21)
 	{
@@ -81,16 +100,23 @@ void Game::hit()
 	}
 }
 
+void Game::stand()
+{
+	input_enabled = false;
+	dealer.start_play();
+}
+
 void Game::update(sf::Time deltaTime)
 {
 	if (waiting_time > 0)
 	{
-		waiting_time -= deltaTime.asMilliseconds();
+		waiting_time -= deltaTime.asMicroseconds();
 		std::cout << waiting_time << std::endl;
 	}
-	if (waiting_time <= 0 && init_after_wait)
+	if (waiting_time <= 0 && call_after_wait)
 	{
-		init();
+		call_after_wait = false;
+		callback();
 	}
 }
 
@@ -108,7 +134,7 @@ float Game::get_width_of_cards_size(int size)
 
 	for (int i = 1; i < size; ++i)
 	{
-		result += step;
+		result += x_step;
 	}
 
 	return result;
@@ -123,46 +149,87 @@ sf::Vector2f Game::calculate_card_starting_position(int displaying_cards_size)
 	return { x, y };
 }
 
-void Game::draw_cards_in_line(sf::RenderTarget& render_target, sf::Vector2f player_starting_position, std::vector<Card>& cards_to_draw)
+void Game::draw_cards_in_line(sf::RenderTarget& render_target, sf::Vector2f player_starting_position, std::vector<Card>& cards_to_draw, sf::Text& text_before_cards)
 {
 	float step_sum = {};
+	text_before_cards.setPosition(0.f, player_starting_position.y + card_height / 2);
+	render_target.draw(text_before_cards);
 	for (Card& card : cards_to_draw)
 	{
 		render_target.draw(card);
 		card.set_position(player_starting_position.x + step_sum, player_starting_position.y);
-		step_sum += step;
+		step_sum += x_step;
 	}
 }
 
 void Game::display_cards(sf::RenderTarget& render_target)
 {
-	float step_sum = 0.f;
+	std::vector<Card>& player_cards = player.get_cards();
 	sf::Vector2f starting_position = calculate_card_starting_position(player_cards.size());
 
 	sf::Vector2f player_starting_position = starting_position;
-	player_starting_position.y += 80.f; // magic number
-	draw_cards_in_line(render_target, player_starting_position, player_cards);
+	player_starting_position.y += y_offset;
 
+	sf::Text player_cards_text;
+	initialize_text(player_cards_text);
+	player_cards_text.setString("Player's Cards:");
+
+	draw_cards_in_line(render_target, player_starting_position, player_cards, player_cards_text);
+
+
+	std::vector<Card>& dealer_cards = dealer.get_cards();
 	starting_position = calculate_card_starting_position(dealer_cards.size());
+
 	sf::Vector2f dealer_starting_position = starting_position;
-	dealer_starting_position.y -= 80.f;
-	draw_cards_in_line(render_target, dealer_starting_position, dealer_cards);
+	dealer_starting_position.y -= y_offset;
+
+	sf::Text dealer_cards_text;
+	initialize_text(dealer_cards_text);
+	dealer_cards_text.setString("Dealer's Cards:");
+
+	draw_cards_in_line(render_target, dealer_starting_position, dealer_cards, dealer_cards_text);
 
 }
 
 void Game::display_text(sf::RenderTarget& render_target)
 {
-	if (player_card_count > 21)
+	if (player.get_card_count() > 21)
 	{
 		player_count_text.setString("busted!!");
 	}
 	else
 	{
-		std::string score_label = "card count: ";
-		player_count_text.setString(score_label + std::to_string(player_card_count));
+		std::string score_label = "player card count: ";
+		player_count_text.setString(score_label + std::to_string(player.get_card_count()));
 	}
 	player_count_text.setPosition(0.f, 0.f);
 	render_target.draw(player_count_text);
+
+	if (dealer_plays)
+	{
+		if (dealer.get_card_count() > 21)
+		{
+			dealer_count_text.setString("busted!!");
+		}
+		else
+		{
+			std::string score_label = "dealer card count: ";
+			dealer_count_text.setString(score_label + std::to_string(dealer.get_card_count()));
+		}
+		dealer_count_text.setPosition(0.f, text_size + 1.f);
+		render_target.draw(dealer_count_text);
+	}
+
+	if (show_result)
+	{
+		result_text.setPosition(0.f, text_size * 2.f + 2.f);
+		render_target.draw(result_text);
+	}
+
+	info_text.setString(R"("h" - hit, "s" - stand)");
+	info_text.setPosition(0.f, window_height - text_size);
+	render_target.draw(info_text);
+
 }
 
 inline bool Game::is_input_enabled()const
@@ -178,42 +245,41 @@ void Game::render()
 	_window.display();
 }
 
-void Game::init()
+std::vector<Card> Game::get_two_cards(bool to_dealer = false)
 {
-	deck.shuffle();
-
-	player_cards.clear();
-	dealer_cards.clear();
+	std::vector<Card> cards;
 
 	Card new_card = deck.give_card();
 	Card new_card2 = deck.give_card();
+	if (to_dealer)
+	{
+		new_card2.hide();
+	}
 
-	player_cards.push_back(new_card);
-	player_cards.push_back(new_card2);
+	cards.push_back(new_card);
+	cards.push_back(new_card2);
 
-	player_card_count = calculate_card_count(player_cards);
-	input_enabled = true;
-	init_after_wait = false;
+	return cards;
 }
 
-void Game::wait_one_second_and_init()
+void Game::start()
 {
-	waiting_time = 200;
-	init_after_wait = true;
+	deck.shuffle();
+
+	std::vector<Card> dealer_cards = get_two_cards(true);
+	dealer.reset(dealer_cards);
+
+	std::vector<Card> player_cards = get_two_cards();
+	player.reset(player_cards);
+
+	input_enabled = true;
+	dealer_plays = false;
+	show_result = false;
 }
 
 void Game::bust()
 {
 	input_enabled = false;
-	wait_one_second_and_init();
-}
-
-int Game::calculate_card_count(std::vector<Card>& cards)
-{
-	int count = 0;
-	for (Card& card : cards)
-	{
-		count += card.get_count();
-	}
-	return count;
+	auto callback_to_set = [&]() { start(); };
+	set_timer(1000, callback_to_set);
 }
